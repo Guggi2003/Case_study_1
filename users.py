@@ -1,11 +1,16 @@
 import os
 
 from tinydb import TinyDB, Query
-import serializer
+from serializer import serializer
 
 class User:
 
-    db_connector_user = TinyDB(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'database.json'), storage=serializer).table('user')
+
+    db_connector_user = TinyDB(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "database.json"),
+        storage=serializer
+    ).table("user")
+
 
     def __init__(self, user_id, user_name) -> None:
         """Create a new user based on the given name and id"""
@@ -19,7 +24,7 @@ class User:
         # Check if the device already exists in the database
         UserQuery = Query()
 
-        result = self.db_connector_user.search(UserQuery.user_name == self.user_name)
+        result = self.db_connector_user.search(UserQuery.id == self.id)
         
         if result:
             # Update the existing record with the current instance's data
@@ -35,7 +40,7 @@ class User:
         print("Deleting data...")
         # Check if the device exists in the database
         UserQuery = Query()
-        result = self.db_connector.search(UserQuery.user_name == self.user_name)
+        result = self.db_connector_user.search(UserQuery.id == self.id)
         if result:
             # Delete the record from the database
             self.db_connector_user.remove(doc_ids=[result[0].doc_id])
@@ -53,8 +58,8 @@ class User:
     def find_all(cls) -> list:
         """Find all users in the database"""
         user_list = []
-        for user_data in User.db_connector_user.all():
-            user_list.append(User(user_data['device_name'], user_data['managed_by_user_id']))
+        for user_data in cls.db_connector_user.all():
+            user_list.append(cls(user_data['device_name'], user_data['managed_by_user_id']))
         return user_list
 
     @classmethod
@@ -66,7 +71,7 @@ class User:
 
         if result:
             data = result[:num_to_return]
-            device_results = [cls(d['device_name'], d['managed_by_user_id']) for d in data]
+            device_results = [cls(d['id'], d['name']) for d in data]
             return device_results if num_to_return > 1 else device_results[0]
         else:
             return None
