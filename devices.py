@@ -1,7 +1,7 @@
 import os
 
 from tinydb import TinyDB, Query
-import serializer
+from serializer import serializer
 
 
 class Device():
@@ -73,7 +73,7 @@ class Device():
         # Load all data from the database and create instances of the Device class
         devices = []
         for device_data in Device.db_connector.all():
-            devices.append(Device(device_data['device_name'], device_data['managed_by_user_id']))
+            devices.append(cls(device_data['device_name'], device_data['managed_by_user_id']))
         return devices
 
 

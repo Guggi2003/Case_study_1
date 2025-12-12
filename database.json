@@ -32,5 +32,31 @@
                 "end_date": "{TinyDateTime}:2021-01-02T00:00:00"
             }
         }
+    },
+    "user": {
+        "1": {
+            "name": "Otto O-Ring",
+            "id": "001"
+        },
+        "2": {
+            "name": "Hans Zahnrad",
+            "id": "002 "
+        },
+        "3": {
+            "name": "Walter Welle",
+            "id": "003"
+        },
+        "4": {
+            "name": "Otto O-Ring",
+            "id": "one@mci.edu"
+        },
+        "5": {
+            "name": "Hans Zahnrad",
+            "id": "two@mci.edu"
+        },
+        "6": {
+            "name": "Walter Welle",
+            "id": "three@mci.edu"
+        }
     }
 }

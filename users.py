@@ -54,13 +54,14 @@ class User:
     def __repr__(self):
         return self.__str__()
     
-    @staticmethod
+    @classmethod
     def find_all(cls) -> list:
         """Find all users in the database"""
-        user_list = []
+        users = []
         for user_data in cls.db_connector_user.all():
-            user_list.append(cls(user_data['device_name'], user_data['managed_by_user_id']))
-        return user_list
+            users.append(cls(user_data["id"], user_data["name"]))
+        return users
+
 
     @classmethod
     def find_by_attribute(cls, by_attribute : str, attribute_value : str, num_to_return: int = 1) -> 'User':
@@ -71,7 +72,30 @@ class User:
 
         if result:
             data = result[:num_to_return]
-            device_results = [cls(d['id'], d['name']) for d in data]
-            return device_results if num_to_return > 1 else device_results[0]
+            user_results = [cls(d['id'], d['name']) for d in data]
+            return user_results if num_to_return > 1 else user_results[0]
         else:
             return None
+
+   
+
+if __name__ == "__main__":
+    # Create a user
+    user1 = User("one@mci.edu", "Otto O-Ring")
+    user2 = User("two@mci.edu", "Hans Zahnrad") 
+    user1.store_data()
+    user2.store_data()
+    user3 = User("three@mci.edu", "Walter Welle") 
+    user3.store_data()
+
+    #loaded_user = User.find_by_attribute("device_name", "Device2")
+    loaded_user = User.find_by_attribute("id", "one@mci.edu")
+    if loaded_user:
+        print(f"Loaded user {loaded_user}")
+    else:
+        print("User not found.")
+
+    users = User.find_all()
+    print("All users:")
+    for user in users:
+        print(user)
