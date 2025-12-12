@@ -63,7 +63,7 @@ class User:
         return user_list
 
     @classmethod
-    def find_by_attribute(cls, by_attribute : str, attribute_value : str) -> 'User':
+    def find_by_attribute(cls, by_attribute : str, attribute_value : str, num_to_return: int = 1) -> 'User':
         """From the matches in the database, select the user with the given attribute value"""
         # Load data from the database and create an instance of the Device class
         UserQuery = Query()
