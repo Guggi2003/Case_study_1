@@ -6,3 +6,9 @@ __pycache__/
 *.pyc
 
 database.json
+
+__pycache__/
+*.pyc
+.venv/
+database.json
+serializer.py
