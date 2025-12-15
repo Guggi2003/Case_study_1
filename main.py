@@ -3,6 +3,9 @@ import streamlit as st
 from users import User
 from devices import Device
 from maintenance import Maintenance, MaintenanceManager
+from reservations import Reservation, ReservationManager
+
+reservation_manager = ReservationManager()
 
 maintenance_manager = MaintenanceManager()
 
@@ -248,20 +251,59 @@ elif selected_area == "Nutzer-Verwaltung":
 elif selected_area == "Reservierungssystem":
     col1, col2, col3 = st.columns(3)
 
+    reservations = reservation_manager.find_all()
+
     with col1:
-        st.subheader("Reservierung anzeigen")
-        st.write("Platzhalter: Reservierungen anzeigen")
-        st.button("Reservierung anzeigen")
+        st.subheader("Reservierungen anzeigen")
+        if not reservations:
+            st.info("Keine Reservierungen vorhanden.")
+        else:
+            for r in reservations:
+                st.write(f"- {r.reservation_id} | {r.device_name} | {r.user_id} | {r.start_iso} -> {r.end_iso} | {r.note}")
 
     with col2:
         st.subheader("Reservierung eintragen")
-        st.write("Platzhalter: Reservierung eintragen")
-        st.button("Reservierung eintragen")
+        if not devices:
+            st.error("Keine Geräte vorhanden.")
+        elif not users:
+            st.error("Keine Nutzer vorhanden.")
+        else:
+            dnames = [d.device_name for d in devices]
+            uids = [u.id for u in users]
+
+            with st.form("create_reservation", clear_on_submit=True):
+                rid = st.text_input("Reservierungs-ID (eindeutig)")
+                dev = st.selectbox("Gerät", dnames)
+                uid = st.selectbox("User", uids)
+                start = st.text_input("Start (ISO, z.B. 2025-12-15T10:00:00)")
+                end = st.text_input("Ende (ISO, z.B. 2025-12-15T12:00:00)")
+                note = st.text_input("Notiz (optional)")
+                submitted = st.form_submit_button("Reservieren")
+
+                if submitted:
+                    if not rid.strip() or not start.strip() or not end.strip():
+                        st.error("ID, Start und Ende sind Pflicht.")
+                    else:
+                        ok = reservation_manager.create(Reservation(rid.strip(), dev, uid, start.strip(), end.strip(), note.strip()))
+                        if ok:
+                            st.success("Reservierung gespeichert.")
+                            st.rerun()
+                        else:
+                            st.error("Nicht möglich (ID existiert oder Zeit überschneidet sich / Format falsch).")
 
     with col3:
         st.subheader("Reservierung löschen")
-        st.write("Platzhalter")
-        st.button("Reservierung löschen")
+        if not reservations:
+            st.info("Keine Reservierungen vorhanden.")
+        else:
+            ids = [r.reservation_id for r in reservations]
+            del_id = st.selectbox("Reservierung-ID", ids)
+            if st.button("Löschen", type="primary"):
+                if reservation_manager.delete_by_id(del_id):
+                    st.success("Gelöscht.")
+                    st.rerun()
+                else:
+                    st.error("Nicht gefunden.")
 
 
 ###############################################################################
