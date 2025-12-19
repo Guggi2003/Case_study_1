@@ -11,12 +11,12 @@ class User:
     ).table("users")
 
     def __init__(self, id: str, name: str) -> None:
-        """Create a new user based on the given name and id"""
+        #Create a new user based on the given name and id
         self.id = id
         self.name = name
 
     def store_data(self) -> None:
-        """Insert or update this user in the database (by id)."""
+        #Insert or update this user in the database (by id).
         q = Query()
         existing = self.db_connector.search(q.id == self.id)
 
@@ -28,7 +28,7 @@ class User:
             self.db_connector.insert(self.__dict__)
 
     def delete(self) -> None:
-        """Delete this user from the database (by id)."""
+        #Delete this user from the database (by id).
         q = Query()
         existing = self.db_connector.search(q.id == self.id)
 
@@ -43,7 +43,7 @@ class User:
 
     @classmethod
     def find_all(cls) -> list["User"]:
-        """Find all users in the database."""
+        #Find all users in the database.
         users = []
         for user_data in cls.db_connector.all():
             users.append(cls(user_data["id"], user_data["name"]))
