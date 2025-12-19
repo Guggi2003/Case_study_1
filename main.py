@@ -1,4 +1,6 @@
 import streamlit as st
+import datetime as dt
+
 
 from users import User
 from devices import Device
@@ -96,7 +98,6 @@ if selected_area == "Geräte-Verwaltung":
             if dev:
                 st.write(f"Name: {dev.device_name}")
                 st.write(f"Managed by: {dev.managed_by_user_id}")
-                st.write(f"Aktiv: {dev.is_active}")
             else:
                 st.warning("Gerät nicht gefunden.")
 
@@ -170,11 +171,11 @@ if selected_area == "Geräte-Verwaltung":
                         st.rerun()
 
             st.markdown("---")
-            st.write("Übersicht Verwalter -> Geräte")
+            st.write("Übersicht: Verwalter -> Geräte")
             for u in users:
                 assigned = Device.find_by_attribute("managed_by_user_id", u.id, num_to_return=100)
                 count = len(assigned) if assigned else 0
-                st.write(f"- {u.name} ({u.id}): {count}")
+                st.write(f"- {u.id}: {count}")
 
 
 #################################################################################################################################################
@@ -210,7 +211,7 @@ elif selected_area == "Nutzer-Verwaltung":
         st.subheader("Nutzer erstellen/ändern")
 
         with st.form("user_upsert", clear_on_submit=False):
-            uid = st.text_input("User-ID (Format: NUMBER@mci.edu)", value="")
+            uid = st.text_input("User-ID (Format: Vorname@Nachname)", value="")
             uname = st.text_input("Name", value="")
             submitted = st.form_submit_button("Speichern")
 
@@ -247,11 +248,20 @@ elif selected_area == "Nutzer-Verwaltung":
         else:
             st.write("Keine Nutzer vorhanden.")
 
+###########################################################################################################################################
 
 elif selected_area == "Reservierungssystem":
     col1, col2, col3 = st.columns(3)
 
     reservations = reservation_manager.find_all()
+
+    if reservations:
+        try:
+            next_id = max(int(r.reservation_id) for r in reservations) + 1
+        except ValueError:
+            next_id = len(reservations) + 1
+    else:
+        next_id = 1
 
     with col1:
         st.subheader("Reservierungen anzeigen")
@@ -259,7 +269,14 @@ elif selected_area == "Reservierungssystem":
             st.info("Keine Reservierungen vorhanden.")
         else:
             for r in reservations:
-                st.write(f"- {r.reservation_id} | {r.device_name} | {r.user_id} | {r.start_iso} -> {r.end_iso} | {r.note}")
+                st.write(
+                    f"🆔 **{r.reservation_id}**\n"
+                    f"- 📱 Gerät: **{r.device_name}**\n"
+                    f"- 👤 User: `{r.user_id}`\n"
+                    f"- ⏰ {r.start_iso} → {r.end_iso}\n"
+                    f"- 📝 {r.note if r.note else '-----'}"
+                )
+
 
     with col2:
         st.subheader("Reservierung eintragen")
@@ -272,24 +289,53 @@ elif selected_area == "Reservierungssystem":
             uids = [u.id for u in users]
 
             with st.form("create_reservation", clear_on_submit=True):
-                rid = st.text_input("Reservierungs-ID (eindeutig)")
+
+                rid = st.text_input(
+                    "Reservierungs-ID",
+                    value=str(next_id),
+                    disabled=True
+                )
+
                 dev = st.selectbox("Gerät", dnames)
                 uid = st.selectbox("User", uids)
-                start = st.text_input("Start (ISO, z.B. 2025-12-15T10:00:00)")
-                end = st.text_input("Ende (ISO, z.B. 2025-12-15T12:00:00)")
+
+                start_date = st.date_input("Startdatum")
+                start_time = st.time_input("Startzeit", value=dt.time(10, 0))
+
+                end_date = st.date_input("Enddatum")
+                end_time = st.time_input("Endzeit", value=dt.time(12, 0))
+
                 note = st.text_input("Notiz (optional)")
                 submitted = st.form_submit_button("Reservieren")
 
                 if submitted:
-                    if not rid.strip() or not start.strip() or not end.strip():
-                        st.error("ID, Start und Ende sind Pflicht.")
+                    start_dt = dt.datetime.combine(start_date, start_time)
+                    end_dt = dt.datetime.combine(end_date, end_time)
+
+                    if end_dt <= start_dt:
+                        st.error("Ende muss nach Start liegen.")
                     else:
-                        ok = reservation_manager.create(Reservation(rid.strip(), dev, uid, start.strip(), end.strip(), note.strip()))
+                        start_iso = start_dt.isoformat()
+                        end_iso = end_dt.isoformat()
+
+                        ok = reservation_manager.create(
+                            Reservation(
+                                str(next_id),
+                                dev,
+                                uid,
+                                start_iso,
+                                end_iso,
+                                note.strip()
+                            )
+                        )
                         if ok:
                             st.success("Reservierung gespeichert.")
                             st.rerun()
                         else:
-                            st.error("Nicht möglich (ID existiert oder Zeit überschneidet sich / Format falsch).")
+                            st.error(
+                                "Nicht möglich (ID existiert bereits oder Zeit "
+                                "überschneidet sich)."
+                            )
 
     with col3:
         st.subheader("Reservierung löschen")
@@ -312,25 +358,43 @@ elif selected_area == "Wartungs-Management":
 
     maints = maintenance_manager.find_all()
 
+    if maints:
+        try:
+            next_id = max(int(m.maintenance_id) for m in maints) + 1
+        except ValueError:
+            next_id = len(maints) + 1
+    else:
+        next_id = 1
+
     with col1:
         st.subheader("Wartungen anzeigen")
-
+    
         if not maints:
             st.info("Keine Wartungen vorhanden.")
         else:
             st.write("Alle Wartungen:")
             for m in maints:
-                st.write(f"- {m.maintenance_id} | Gerät: {m.device_name} | Kosten: {m.cost:.2f} | {m.description}")
+                st.write(
+                    f"🆔 **{m.maintenance_id}**\n"
+                    f"- 📱 Gerät: **{m.device_name}**\n"
+                    f"- 💰 Kosten: {m.cost:.2f} €\n"
+                    f"- 📝 {m.description if m.description else '----'}"
+                )
+
 
             st.markdown("---")
             if devices:
                 dnames = [d.device_name for d in devices]
                 sel_dev = st.selectbox("Nach Gerät filtern", ["(alle)"] + dnames, index=0)
                 if sel_dev != "(alle)":
-                    filtered = maintenance_manager.find_by_attribute("device_name", sel_dev, num_to_return=500)
+                    filtered = maintenance_manager.find_by_attribute(
+                        "device_name", sel_dev, num_to_return=500
+                    )
                     st.write(f"Wartungen für {sel_dev}:")
                     for m in filtered:
-                        st.write(f"- {m.maintenance_id} | Kosten: {m.cost:.2f} | {m.description}")
+                        st.write(
+                            f"- {m.maintenance_id} | Kosten: {m.cost:.2f} | {m.description}"
+                        )
 
     with col2:
         st.subheader("Wartung anlegen/ändern")
@@ -341,7 +405,13 @@ elif selected_area == "Wartungs-Management":
             dnames = [d.device_name for d in devices]
 
             with st.form("maintenance_upsert_form", clear_on_submit=True):
-                mid = st.text_input("Wartungs-ID (eindeutig)", value="")
+
+                rid = st.text_input(
+                    "Wartung-ID",
+                    value=str(next_id),
+                    disabled=True
+                )
+
                 dev_name = st.selectbox("Gerät", dnames, index=0)
                 desc = st.text_area("Beschreibung", value="")
                 cost = st.number_input("Kosten", min_value=0.0, value=0.0, step=1.0)
@@ -349,13 +419,13 @@ elif selected_area == "Wartungs-Management":
                 submitted = st.form_submit_button("Speichern")
 
                 if submitted:
-                    if not mid.strip():
+                    if not rid.strip():
                         st.error("Wartungs-ID darf nicht leer sein.")
                     elif not desc.strip():
                         st.error("Beschreibung darf nicht leer sein.")
                     else:
                         m = Maintenance(
-                            maintenance_id=mid.strip(),
+                            maintenance_id=rid.strip(),
                             device_name=dev_name,
                             description=desc.strip(),
                             cost=float(cost),
@@ -392,3 +462,5 @@ elif selected_area == "Wartungs-Management":
                     st.rerun()
                 else:
                     st.error("Wartung nicht gefunden.")
+
+###################################################################################################################

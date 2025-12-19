@@ -52,7 +52,6 @@ class Device():
             print("Data not found.")
 
     def set_managed_by_user_id(self, managed_by_user_id: str):
-        """Expects `managed_by_user_id` to be a valid user id that exists in the database."""
         self.managed_by_user_id = managed_by_user_id
 
     # Class method that can be called without an instance of the class to construct an instance of the class
