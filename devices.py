@@ -1,80 +1,42 @@
-import os
-from tinydb import TinyDB, Query
-from tinydb.storages import JSONStorage
+from entity import Entity
 
 
-class Device():
-    # Class variable that is shared between all instances of the class
-    db_connector = TinyDB(
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "database.json"),storage=JSONStorage).table("devices")
+class Device(Entity):
+    """Device class - represents a device in the business logic."""
 
-
-    # Constructor
-    def __init__(self, device_name : str, managed_by_user_id : str):
+    def __init__(self, device_name: str, managed_by_user_id: str):
+        """Create a new device."""
+        super().__init__()
         self.device_name = device_name
         # The user id of the user that manages the device
         # We don't store the user object itself, but only the id (as a key)
         self.managed_by_user_id = managed_by_user_id
         self.is_active = True
-        
-    # String representation of the class
+
     def __str__(self):
         return f'Device (Object) {self.device_name} ({self.managed_by_user_id})'
 
-    # String representation of the class
-    def __repr__(self):
-        return self.__str__()
-    
     def store_data(self):
-        print("Storing data...")
-        # Check if the device already exists in the database
-        DeviceQuery = Query()
-        result = self.db_connector.search(DeviceQuery.device_name == self.device_name)
-        if result:
-            # Update the existing record with the current instance's data
-            result = self.db_connector.update(self.__dict__, doc_ids=[result[0].doc_id])
-            print("Data updated.")
-        else:
-            # If the device doesn't exist, insert a new record
-            self.db_connector.insert(self.__dict__)
-            print("Data inserted.")
-    
+        """Store this device - should be called through DeviceRepository."""
+        raise NotImplementedError("Use DeviceRepository.save_device() instead")
+
     def delete(self):
-        print("Deleting data...")
-        # Check if the device exists in the database
-        DeviceQuery = Query()
-        result = self.db_connector.search(DeviceQuery.device_name == self.device_name)
-        if result:
-            # Delete the record from the database
-            self.db_connector.remove(doc_ids=[result[0].doc_id])
-            print("Data deleted.")
-        else:
-            print("Data not found.")
+        """Delete this device - should be called through DeviceRepository."""
+        raise NotImplementedError("Use DeviceRepository.delete_device() instead")
 
     def set_managed_by_user_id(self, managed_by_user_id: str):
+        """Set the user ID that manages this device."""
         self.managed_by_user_id = managed_by_user_id
 
-    # Class method that can be called without an instance of the class to construct an instance of the class
     @classmethod
     def find_by_attribute(cls, by_attribute: str, attribute_value: str, num_to_return=1):
-        # Load data from the database and create an instance of the Device class
-        DeviceQuery = Query()
-        result = cls.db_connector.search(DeviceQuery[by_attribute] == attribute_value)
-
-        if result:
-            data = result[:num_to_return]
-            device_results = [cls(d['device_name'], d['managed_by_user_id']) for d in data]
-            return device_results if num_to_return > 1 else device_results[0]
-        else:
-            return None
+        """Find devices by attribute - should be called through DeviceRepository."""
+        raise NotImplementedError("Use DeviceRepository.find_devices_by_attribute() instead")
 
     @classmethod
     def find_all(cls) -> list:
-        # Load all data from the database and create instances of the Device class
-        devices = []
-        for device_data in Device.db_connector.all():
-            devices.append(cls(device_data['device_name'], device_data['managed_by_user_id']))
-        return devices
+        """Find all devices - should be called through DeviceRepository."""
+        raise NotImplementedError("Use DeviceRepository.get_all_devices() instead")
 
 
 

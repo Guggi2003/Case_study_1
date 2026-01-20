@@ -4,8 +4,13 @@ import datetime as dt
 
 from users import User
 from devices import Device
+from repository import UserRepository, DeviceRepository
 from maintenance import Maintenance, MaintenanceManager
 from reservations import Reservation, ReservationManager
+
+# Initialize repositories
+user_repo = UserRepository()
+device_repo = DeviceRepository()
 
 reservation_manager = ReservationManager()
 
@@ -14,11 +19,27 @@ maintenance_manager = MaintenanceManager()
 st.set_page_config(page_title="Administrator-Portal", layout="wide")
 
 # ---------- Helpers ----------
-def load_users() -> list[User]:
-    return User.find_all()
+def load_users_cached() -> list[User]:
+    """Load users from cache or database."""
+    if "users_cache" not in st.session_state:
+        st.session_state["users_cache"] = user_repo.get_all_users()
+    return st.session_state["users_cache"]
 
-def load_devices() -> list[Device]:
-    return Device.find_all()
+def load_devices_cached() -> list[Device]:
+    """Load devices from cache or database."""
+    if "devices_cache" not in st.session_state:
+        st.session_state["devices_cache"] = device_repo.get_all_devices()
+    return st.session_state["devices_cache"]
+
+def invalidate_users_cache():
+    """Invalidate users cache after changes."""
+    if "users_cache" in st.session_state:
+        del st.session_state["users_cache"]
+
+def invalidate_devices_cache():
+    """Invalidate devices cache after changes."""
+    if "devices_cache" in st.session_state:
+        del st.session_state["devices_cache"]
 
 def users_by_id(users: list[User]) -> dict[str, User]:
     return {u.id: u for u in users}
@@ -32,8 +53,8 @@ if "current_device_name" not in st.session_state:
     st.session_state["current_device_name"] = None
 
 # ---------- Daten laden ----------
-users = load_users()
-devices = load_devices()
+users = load_users_cached()
+devices = load_devices_cached()
 user_map = users_by_id(users)
 
 # ---------- Seitentitel ----------
@@ -94,7 +115,7 @@ if selected_area == "Geräte-Verwaltung":
 
         current_name = st.session_state.get("current_device_name", None)
         if current_name:
-            dev = Device.find_by_attribute("device_name", current_name)
+            dev = device_repo.find_device_by_name(current_name)
             if dev:
                 st.write(f"Name: {dev.device_name}")
                 st.write(f"Managed by: {dev.managed_by_user_id}")
@@ -104,9 +125,10 @@ if selected_area == "Geräte-Verwaltung":
         st.markdown("---")
         if current_name:
             if st.button("Gerät löschen", type="primary"):
-                dev = Device.find_by_attribute("device_name", current_name)
+                dev = device_repo.find_device_by_name(current_name)
                 if dev:
-                    dev.delete()
+                    device_repo.delete_device(current_name)
+                    invalidate_devices_cache()
                     st.session_state["current_device_name"] = None
                     st.success("Gerät gelöscht.")
                     st.rerun()
@@ -139,7 +161,8 @@ if selected_area == "Geräte-Verwaltung":
                     else:
                         dev = Device(new_device_name.strip(), selected_user_id)
                         dev.is_active = new_is_active
-                        dev.store_data()
+                        device_repo.save_device(dev)
+                        invalidate_devices_cache()
                         st.success("Gerät erstellt.")
                         st.rerun()
 
@@ -161,19 +184,20 @@ if selected_area == "Geräte-Verwaltung":
                 submitted = st.form_submit_button("Zuweisen")
 
                 if submitted:
-                    dev = Device.find_by_attribute("device_name", device_to_assign)
+                    dev = device_repo.find_device_by_name(device_to_assign)
                     if not dev:
                         st.error("Gerät nicht gefunden.")
                     else:
                         dev.set_managed_by_user_id(manager_id)
-                        dev.store_data()
+                        device_repo.save_device(dev)
+                        invalidate_devices_cache()
                         st.success(f"Verwalter zugewiesen: {device_to_assign} -> {manager_id}")
                         st.rerun()
 
             st.markdown("---")
             st.write("Übersicht: Verwalter -> Geräte")
             for u in users:
-                assigned = Device.find_by_attribute("managed_by_user_id", u.id, num_to_return=100)
+                assigned = device_repo.find_devices_by_attribute("managed_by_user_id", u.id, num_to_return=100)
                 count = len(assigned) if assigned else 0
                 st.write(f"- {u.id}: {count}")
 
@@ -189,13 +213,13 @@ elif selected_area == "Nutzer-Verwaltung":
 
         if users:
             selected_user_id = st.selectbox("User auswählen (ID)", [u.id for u in users], index=0)
-            u = User.find_by_attribute("id", selected_user_id)
+            u = user_repo.find_user_by_id(selected_user_id)
 
             if u:
                 st.write(f"ID: {u.id}")
                 st.write(f"Name: {u.name}")
 
-                assigned = Device.find_by_attribute("managed_by_user_id", u.id, num_to_return=100)
+                assigned = device_repo.find_devices_by_attribute("managed_by_user_id", u.id, num_to_return=100)
                 st.markdown("---")
                 st.write("Zugeordnete Geräte:")
                 if assigned:
@@ -222,7 +246,8 @@ elif selected_area == "Nutzer-Verwaltung":
                     st.error("Name darf nicht leer sein.")
                 else:
                     u = User(uid.strip(), uname.strip())
-                    u.store_data()
+                    user_repo.save_user(u)
+                    invalidate_users_cache()
                     st.success("User gespeichert.")
                     st.rerun()
 
@@ -234,13 +259,14 @@ elif selected_area == "Nutzer-Verwaltung":
             del_user_id = st.selectbox("User löschen (ID)", [u.id for u in users], index=0)
 
             if st.button("User endgültig löschen", type="primary"):
-                u = User.find_by_attribute("id", del_user_id)
+                u = user_repo.find_user_by_id(del_user_id)
                 if u:
-                    assigned = Device.find_by_attribute("managed_by_user_id", u.id, num_to_return=100)
+                    assigned = device_repo.find_devices_by_attribute("managed_by_user_id", u.id, num_to_return=100)
                     if assigned:
                         st.error("User hat noch Geräte zugeordnet - erst umhaengen oder Geräte loeschen.")
                     else:
-                        u.delete()
+                        user_repo.delete_user(del_user_id)
+                        invalidate_users_cache()
                         st.success("User gelöscht.")
                         st.rerun()
                 else:
