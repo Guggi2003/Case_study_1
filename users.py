@@ -1,4 +1,5 @@
 from entity import Entity
+from datetime import datetime
 
 
 class User(Entity):
@@ -23,4 +24,7 @@ class User(Entity):
 
     @classmethod
     def from_dict(cls, data: dict):
-        return User(data["id"], data["name"])
+        user = User(data["id"], data["name"])
+        if "created_at" in data:
+            user.created_at = data["created_at"]
+        return user

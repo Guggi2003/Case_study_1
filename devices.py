@@ -1,4 +1,5 @@
 from entity import Entity
+from datetime import datetime
 
 
 class Device(Entity):
@@ -35,6 +36,8 @@ class Device(Entity):
         device = Device(data["device_name"], data["managed_by_user_id"])
         if "is_active" in data:
             device.is_active = data["is_active"]
+        if "created_at" in data:
+            device.created_at = data["created_at"]
         return device
 
     

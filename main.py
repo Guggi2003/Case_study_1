@@ -295,7 +295,7 @@ elif selected_area == "Reservierungssystem":
                     f"🆔 **{r.reservation_id}**\n"
                     f"- 📱 Gerät: **{r.device_name}**\n"
                     f"- 👤 User: `{r.user_id}`\n"
-                    f"- ⏰ {r.start_iso} → {r.end_iso}\n"
+                    f"- ⏰ {r.start.strftime('%Y-%m-%d %H:%M')} → {r.end.strftime('%Y-%m-%d %H:%M')}\n"
                     f"- 📝 {r.note if r.note else '-----'}"
                 )
 
@@ -337,16 +337,13 @@ elif selected_area == "Reservierungssystem":
                     if end_dt <= start_dt:
                         st.error("Ende muss nach Start liegen.")
                     else:
-                        start_iso = start_dt.isoformat()
-                        end_iso = end_dt.isoformat()
-
                         ok = reservation_manager.create(
                             Reservation(
                                 str(next_id),
                                 dev,
                                 uid,
-                                start_iso,
-                                end_iso,
+                                start_dt,
+                                end_dt,
                                 note.strip()
                             )
                         )

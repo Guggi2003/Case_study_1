@@ -3,13 +3,15 @@ from tinydb import TinyDB, Query
 from tinydb.storages import JSONStorage
 from database import DatabaseConnector
 from abc import ABC, abstractmethod
+from datetime import datetime
+
 
 
 class Entity(ABC):
     """Base class for entities that can be persisted to the database."""
     
     def __init__(self) -> None:
-        pass
+        self.created_at = datetime.now()
 
     @abstractmethod
     def __str__(self) -> str:
