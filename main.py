@@ -4,14 +4,10 @@ import datetime as dt
 
 from users import User
 from devices import Device
-from repository import UserRepository, DeviceRepository
 from maintenance import Maintenance, MaintenanceManager
 from reservations import Reservation, ReservationManager
 
-# Initialize repositories
-user_repo = UserRepository()
-device_repo = DeviceRepository()
-
+# Initialize managers
 reservation_manager = ReservationManager()
 
 maintenance_manager = MaintenanceManager()
@@ -22,13 +18,13 @@ st.set_page_config(page_title="Administrator-Portal", layout="wide")
 def load_users_cached() -> list[User]:
     """Load users from cache or database."""
     if "users_cache" not in st.session_state:
-        st.session_state["users_cache"] = user_repo.get_all_users()
+        st.session_state["users_cache"] = User.find_all()
     return st.session_state["users_cache"]
 
 def load_devices_cached() -> list[Device]:
     """Load devices from cache or database."""
     if "devices_cache" not in st.session_state:
-        st.session_state["devices_cache"] = device_repo.get_all_devices()
+        st.session_state["devices_cache"] = Device.find_all()
     return st.session_state["devices_cache"]
 
 def invalidate_users_cache():
@@ -115,7 +111,7 @@ if selected_area == "Geräte-Verwaltung":
 
         current_name = st.session_state.get("current_device_name", None)
         if current_name:
-            dev = device_repo.find_device_by_name(current_name)
+            dev = Device.find_by_attribute("device_name", current_name)
             if dev:
                 st.write(f"Name: {dev.device_name}")
                 st.write(f"Managed by: {dev.managed_by_user_id}")
@@ -125,9 +121,9 @@ if selected_area == "Geräte-Verwaltung":
         st.markdown("---")
         if current_name:
             if st.button("Gerät löschen", type="primary"):
-                dev = device_repo.find_device_by_name(current_name)
+                dev = Device.find_by_attribute("device_name", current_name)
                 if dev:
-                    device_repo.delete_device(current_name)
+                    dev.delete()
                     invalidate_devices_cache()
                     st.session_state["current_device_name"] = None
                     st.success("Gerät gelöscht.")
@@ -161,7 +157,7 @@ if selected_area == "Geräte-Verwaltung":
                     else:
                         dev = Device(new_device_name.strip(), selected_user_id)
                         dev.is_active = new_is_active
-                        device_repo.save_device(dev)
+                        dev.store_data()
                         invalidate_devices_cache()
                         st.success("Gerät erstellt.")
                         st.rerun()
@@ -184,12 +180,12 @@ if selected_area == "Geräte-Verwaltung":
                 submitted = st.form_submit_button("Zuweisen")
 
                 if submitted:
-                    dev = device_repo.find_device_by_name(device_to_assign)
+                    dev = Device.find_by_attribute("device_name", device_to_assign)
                     if not dev:
                         st.error("Gerät nicht gefunden.")
                     else:
                         dev.set_managed_by_user_id(manager_id)
-                        device_repo.save_device(dev)
+                        dev.store_data()
                         invalidate_devices_cache()
                         st.success(f"Verwalter zugewiesen: {device_to_assign} -> {manager_id}")
                         st.rerun()
@@ -197,7 +193,7 @@ if selected_area == "Geräte-Verwaltung":
             st.markdown("---")
             st.write("Übersicht: Verwalter -> Geräte")
             for u in users:
-                assigned = device_repo.find_devices_by_attribute("managed_by_user_id", u.id, num_to_return=100)
+                assigned = Device.find_by_attribute("managed_by_user_id", u.id, num_to_return=100)
                 count = len(assigned) if assigned else 0
                 st.write(f"- {u.id}: {count}")
 
@@ -213,13 +209,13 @@ elif selected_area == "Nutzer-Verwaltung":
 
         if users:
             selected_user_id = st.selectbox("User auswählen (ID)", [u.id for u in users], index=0)
-            u = user_repo.find_user_by_id(selected_user_id)
+            u = User.find_by_attribute("id", selected_user_id)
 
             if u:
                 st.write(f"ID: {u.id}")
                 st.write(f"Name: {u.name}")
 
-                assigned = device_repo.find_devices_by_attribute("managed_by_user_id", u.id, num_to_return=100)
+                assigned = Device.find_by_attribute("managed_by_user_id", u.id, num_to_return=100)
                 st.markdown("---")
                 st.write("Zugeordnete Geräte:")
                 if assigned:
@@ -246,7 +242,7 @@ elif selected_area == "Nutzer-Verwaltung":
                     st.error("Name darf nicht leer sein.")
                 else:
                     u = User(uid.strip(), uname.strip())
-                    user_repo.save_user(u)
+                    u.store_data()
                     invalidate_users_cache()
                     st.success("User gespeichert.")
                     st.rerun()
@@ -259,13 +255,13 @@ elif selected_area == "Nutzer-Verwaltung":
             del_user_id = st.selectbox("User löschen (ID)", [u.id for u in users], index=0)
 
             if st.button("User endgültig löschen", type="primary"):
-                u = user_repo.find_user_by_id(del_user_id)
+                u = User.find_by_attribute("id", del_user_id)
                 if u:
-                    assigned = device_repo.find_devices_by_attribute("managed_by_user_id", u.id, num_to_return=100)
+                    assigned = Device.find_by_attribute("managed_by_user_id", u.id, num_to_return=100)
                     if assigned:
                         st.error("User hat noch Geräte zugeordnet - erst umhaengen oder Geräte loeschen.")
                     else:
-                        user_repo.delete_user(del_user_id)
+                        u.delete()
                         invalidate_users_cache()
                         st.success("User gelöscht.")
                         st.rerun()
