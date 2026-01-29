@@ -3,8 +3,8 @@ from tinydb import TinyDB, Query
 from tinydb.storages import JSONStorage
 from database import DatabaseConnector
 from abc import ABC, abstractmethod
+from enum import Enum
 from datetime import datetime
-
 
 
 class Entity(ABC):
@@ -41,10 +41,19 @@ class Entity(ABC):
         q = Query()
         key_field = self.__class__.get_key_field()
         existing = db.search(q[key_field] == getattr(self, key_field))
+        # Prepare a JSON-serializable copy of the object's dict.
+        serializable = {}
+        for k, v in self.__dict__.items():
+            # Convert Enum values to their underlying value (e.g. DeviceState.AVAILABLE -> "available")
+            if isinstance(v, Enum):
+                serializable[k] = v.value
+            else:
+                serializable[k] = v
+
         if existing:
-            db.update(self.__dict__, doc_ids=[existing[0].doc_id])
+            db.update(serializable, doc_ids=[existing[0].doc_id])
         else:
-            db.insert(self.__dict__)
+            db.insert(serializable)
 
     def delete(self) -> None:
         """Delete this entity from the database."""
