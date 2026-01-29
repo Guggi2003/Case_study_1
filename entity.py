@@ -1,34 +1,94 @@
 import os
-from tinydb import TinyDB
+from tinydb import TinyDB, Query
 from tinydb.storages import JSONStorage
+from database import DatabaseConnector
+from abc import ABC, abstractmethod
+from enum import Enum
+from datetime import datetime
 
 
-class Entity:
+class Entity(ABC):
     """Base class for entities that can be persisted to the database."""
     
     def __init__(self) -> None:
-        pass
+        self.created_at = datetime.now()
 
-    def store_data(self) -> None:
-        """Insert or update this entity in the database."""
-        raise NotImplementedError("Subclasses must implement store_data()")
-
-    def delete(self) -> None:
-        """Delete this entity from the database."""
-        raise NotImplementedError("Subclasses must implement delete()")
-
+    @abstractmethod
     def __str__(self) -> str:
-        raise NotImplementedError("Subclasses must implement __str__()")
+        pass
 
     def __repr__(self) -> str:
         return self.__str__()
 
     @classmethod
+    @abstractmethod
+    def get_table_name(cls) -> str:
+        pass
+
+    @classmethod
+    @abstractmethod
+    def get_key_field(cls) -> str:
+        pass
+
+    @classmethod
+    @abstractmethod
+    def from_dict(cls, data: dict):
+        pass
+
+    def store_data(self) -> None:
+        """Insert or update this entity in the database."""
+        db = DatabaseConnector().get_table(self.__class__.get_table_name())
+        q = Query()
+        key_field = self.__class__.get_key_field()
+        existing = db.search(q[key_field] == getattr(self, key_field))
+        # Prepare a JSON-serializable copy of the object's dict.
+        serializable = {}
+        for k, v in self.__dict__.items():
+            # Convert Enum values to their underlying value (e.g. DeviceState.AVAILABLE -> "available")
+            if isinstance(v, Enum):
+                serializable[k] = v.value
+            else:
+                serializable[k] = v
+
+        if existing:
+            db.update(serializable, doc_ids=[existing[0].doc_id])
+        else:
+            db.insert(serializable)
+
+    def delete(self) -> None:
+        """Delete this entity from the database."""
+        db = DatabaseConnector().get_table(self.__class__.get_table_name())
+        q = Query()
+        key_field = self.__class__.get_key_field()
+        existing = db.search(q[key_field] == getattr(self, key_field))
+        if existing:
+            db.remove(doc_ids=[existing[0].doc_id])
+
+    @classmethod
     def find_all(cls) -> list:
         """Find all entities in the database."""
-        raise NotImplementedError("Subclasses must implement find_all()")
+        db = DatabaseConnector().get_table(cls.get_table_name())
+        items = []
+        for data in db.all():
+            try:
+                items.append(cls.from_dict(data))
+            except (KeyError, ValueError):
+                # Skip invalid data entries
+                continue
+        return items
 
     @classmethod
     def find_by_attribute(cls, by_attribute: str, attribute_value: str, num_to_return: int = 1):
         """Find entity/entities by attribute in the database."""
-        raise NotImplementedError("Subclasses must implement find_by_attribute()")
+        db = DatabaseConnector().get_table(cls.get_table_name())
+        q = Query()
+        result = db.search(q[by_attribute] == attribute_value)
+        if not result:
+            return [] if num_to_return > 1 else None
+        items = []
+        for d in result[:num_to_return]:
+            try:
+                items.append(cls.from_dict(d))
+            except (KeyError, ValueError):
+                continue
+        return items if num_to_return > 1 else (items[0] if items else None)

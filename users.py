@@ -1,4 +1,5 @@
 from entity import Entity
+from datetime import datetime
 
 
 class User(Entity):
@@ -10,23 +11,20 @@ class User(Entity):
         self.id = id
         self.name = name
 
-    def store_data(self) -> None:
-        """Store this user - should be called through UserRepository."""
-        raise NotImplementedError("Use UserRepository.save_user() instead")
-
-    def delete(self) -> None:
-        """Delete this user - should be called through UserRepository."""
-        raise NotImplementedError("Use UserRepository.delete_user() instead")
-
     def __str__(self) -> str:
         return f"User {self.id} - {self.name}"
 
     @classmethod
-    def find_all(cls) -> list["User"]:
-        """Find all users - should be called through UserRepository."""
-        raise NotImplementedError("Use UserRepository.get_all_users() instead")
+    def get_table_name(cls) -> str:
+        return "users"
 
     @classmethod
-    def find_by_attribute(cls, by_attribute: str, attribute_value: str, num_to_return: int = 1):
-        """Find users by attribute - should be called through UserRepository."""
-        raise NotImplementedError("Use UserRepository.find_users_by_attribute() instead")
+    def get_key_field(cls) -> str:
+        return "id"
+
+    @classmethod
+    def from_dict(cls, data: dict):
+        user = User(data["id"], data["name"])
+        if "created_at" in data:
+            user.created_at = data["created_at"]
+        return user

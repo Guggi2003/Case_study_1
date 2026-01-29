@@ -1,4 +1,13 @@
 from entity import Entity
+from datetime import datetime
+from enum import Enum
+
+
+class DeviceState(Enum):
+    AVAILABLE = "available"
+    RESERVED = "reserved"
+    MAINTENANCE = "maintenance"
+    INACTIVE = "inactive"
 
 
 class Device(Entity):
@@ -12,59 +21,71 @@ class Device(Entity):
         # We don't store the user object itself, but only the id (as a key)
         self.managed_by_user_id = managed_by_user_id
         self.is_active = True
+        self.state = DeviceState.AVAILABLE
 
     def __str__(self):
         return f'Device (Object) {self.device_name} ({self.managed_by_user_id})'
-
-    def store_data(self):
-        """Store this device - should be called through DeviceRepository."""
-        raise NotImplementedError("Use DeviceRepository.save_device() instead")
-
-    def delete(self):
-        """Delete this device - should be called through DeviceRepository."""
-        raise NotImplementedError("Use DeviceRepository.delete_device() instead")
 
     def set_managed_by_user_id(self, managed_by_user_id: str):
         """Set the user ID that manages this device."""
         self.managed_by_user_id = managed_by_user_id
 
     @classmethod
-    def find_by_attribute(cls, by_attribute: str, attribute_value: str, num_to_return=1):
-        """Find devices by attribute - should be called through DeviceRepository."""
-        raise NotImplementedError("Use DeviceRepository.find_devices_by_attribute() instead")
+    def get_table_name(cls) -> str:
+        return "devices"
 
     @classmethod
-    def find_all(cls) -> list:
-        """Find all devices - should be called through DeviceRepository."""
-        raise NotImplementedError("Use DeviceRepository.get_all_devices() instead")
+    def get_key_field(cls) -> str:
+        return "device_name"
 
+    @classmethod
+    def from_dict(cls, data: dict):
+        if "device_name" not in data or "managed_by_user_id" not in data:
+            raise ValueError(f"Invalid data for Device: {data}")
+        device = Device(data["device_name"], data["managed_by_user_id"])
+        if "is_active" in data:
+            device.is_active = data["is_active"]
+        if "created_at" in data:
+            device.created_at = data["created_at"]
+        if "state" in data:
+            device.state = DeviceState(data["state"])
+        return device
 
+    def reserve(self):
+        """Reserve the device."""
+        if self.state == DeviceState.AVAILABLE:
+            self.state = DeviceState.RESERVED
+        else:
+            raise ValueError(f"Cannot reserve device in state {self.state}")
 
-    
+    def release(self):
+        """Release the device."""
+        if self.state == DeviceState.RESERVED:
+            self.state = DeviceState.AVAILABLE
+        else:
+            raise ValueError(f"Cannot release device in state {self.state}")
 
-if __name__ == "__main__":
-    # Create a device
-    device1 = Device("Device1", "one@mci.edu")
-    device2 = Device("Device2", "two@mci.edu") 
-    device3 = Device("Device3", "two@mci.edu") 
-    device4 = Device("Device4", "two@mci.edu") 
-    device1.store_data()
-    device2.store_data()
-    device3.store_data()
-    device4.store_data()
-    device5 = Device("Device3", "four@mci.edu") 
-    device5.store_data()
+    def start_maintenance(self):
+        """Start maintenance on the device."""
+        if self.state in [DeviceState.AVAILABLE, DeviceState.RESERVED]:
+            self.state = DeviceState.MAINTENANCE
+        else:
+            raise ValueError(f"Cannot start maintenance on device in state {self.state}")
 
-    #loaded_device = Device.find_by_attribute("device_name", "Device2")
-    loaded_device = Device.find_by_attribute("managed_by_user_id", "two@mci.edu")
-    if loaded_device:
-        print(f"Loaded Device: {loaded_device}")
-    else:
-        print("Device not found.")
+    def end_maintenance(self):
+        """End maintenance on the device."""
+        if self.state == DeviceState.MAINTENANCE:
+            self.state = DeviceState.AVAILABLE
+        else:
+            raise ValueError(f"Cannot end maintenance on device in state {self.state}")
 
-    devices = Device.find_all()
-    print("All devices:")
-    for device in devices:
-        print(device)
+    def deactivate(self):
+        """Deactivate the device."""
+        self.state = DeviceState.INACTIVE
 
-    
+    def activate(self):
+        """Activate the device."""
+        if self.state == DeviceState.INACTIVE:
+            self.state = DeviceState.AVAILABLE
+        else:
+            raise ValueError(f"Cannot activate device in state {self.state}")
